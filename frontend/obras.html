@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Obras - Desafio Java JR</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+  <script src="js/api.js"></script>
+</head>
+<body>
+  <header>Obras</header>
+  <nav>
+    <a href="index.html">Início</a>
+    <a href="autores.html">Autores</a>
+  </nav>
+  <div class="container">
+    <h2>Cadastrar/Editar Obra</h2>
+    <form id="obra-form">
+      <input type="hidden" id="obra-id">
+      <label>Nome*
+        <input type="text" id="obra-nome" required>
+      </label>
+      <label>Descrição*
+        <textarea id="obra-descricao" maxlength="240" required></textarea>
+      </label>
+      <label>Data de Publicação
+        <input type="date" id="obra-publicacao">
+      </label>
+      <label>Data de Exposição
+        <input type="date" id="obra-exposicao">
+      </label>
+      <label>Autores*
+        <select id="obra-autores" multiple style="height:80px;"></select>
+      </label>
+      <button type="submit">Salvar</button>
+      <button type="button" onclick="limparFormObra()">Limpar</button>
+    </form>
+    <div id="obra-alert"></div>
+    <h2>Obras Cadastradas</h2>
+    <table id="obras-tabela">
+      <thead>
+        <tr>
+          <th>Nome</th><th>Descrição</th><th>Publicação</th><th>Exposição</th><th>Autores</th><th>Ações</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <script>
+    let autoresCache = [];
+    async function carregarAutoresSelect(selectedIds=[]) {
+      const autores = await apiFetch(API_URL + '/autores');
+      autoresCache = autores.content || [];
+      const select = document.getElementById('obra-autores');
+      select.innerHTML = '';
+      autoresCache.forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a.id;
+        opt.textContent = a.nome;
+        if(selectedIds.includes(a.id)) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+    async function listarObras() {
+      const obras = await apiFetch(API_URL + '/obras');
+      const tbody = document.querySelector('#obras-tabela tbody');
+      tbody.innerHTML = '';
+      (obras.content || []).forEach(obra => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${obra.nome}</td>
+          <td>${obra.descricao}</td>
+          <td>${obra.dataPublicacao||''}</td>
+          <td>${obra.dataExposicao||''}</td>
+          <td>${(obra.autoresIds||[]).map(id => autoresCache.find(a=>a.id===id)?.nome).filter(Boolean).join(', ')}</td>
+          <td>
+            <button class="btn" onclick="editarObra(${obra.id})">Editar</button>
+            <button class="btn" onclick="excluirObra(${obra.id})">Excluir</button>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+    }
+    async function salvarObra(e) {
+      e.preventDefault();
+      const id = document.getElementById('obra-id').value;
+      const nome = document.getElementById('obra-nome').value;
+      const descricao = document.getElementById('obra-descricao').value;
+      const dataPublicacao = document.getElementById('obra-publicacao').value;
+      const dataExposicao = document.getElementById('obra-exposicao').value;
+      const autoresIds = Array.from(document.getElementById('obra-autores').selectedOptions).map(o=>Number(o.value));
+      const dto = { nome, descricao, dataPublicacao, dataExposicao, autoresIds };
+      try {
+        if(id) await apiFetch(API_URL + '/obras/' + id, {method:'PUT', body:JSON.stringify(dto)});
+        else await apiFetch(API_URL + '/obras', {method:'POST', body:JSON.stringify(dto)});
+        limparFormObra();
+        listarObras();
+        showAlertObra('Obra salva com sucesso!', true);
+      } catch(err) { showAlertObra(err.message, false); }
+    }
+    function limparFormObra() {
+      document.getElementById('obra-form').reset();
+      document.getElementById('obra-id').value = '';
+      carregarAutoresSelect();
+    }
+    async function editarObra(id) {
+      const obra = await apiFetch(API_URL + '/obras/' + id);
+      document.getElementById('obra-id').value = obra.id;
+      document.getElementById('obra-nome').value = obra.nome;
+      document.getElementById('obra-descricao').value = obra.descricao;
+      document.getElementById('obra-publicacao').value = obra.dataPublicacao||'';
+      document.getElementById('obra-exposicao').value = obra.dataExposicao||'';
+      carregarAutoresSelect(obra.autoresIds||[]);
+    }
+    async function excluirObra(id) {
+      if(!confirm('Tem certeza que deseja excluir esta obra?')) return;
+      try {
+        await apiFetch(API_URL + '/obras/' + id, {method:'DELETE'});
+        listarObras();
+        showAlertObra('Obra excluída com sucesso!', true);
+      } catch(err) { showAlertObra(err.message, false); }
+    }
+    function showAlertObra(msg, success) {
+      const div = document.getElementById('obra-alert');
+      div.className = success ? 'alert success' : 'alert';
+      div.textContent = msg;
+      setTimeout(()=>{div.textContent='';div.className='';}, 4000);
+    }
+    document.getElementById('obra-form').onsubmit = salvarObra;
+    window.onload = async () => { await carregarAutoresSelect(); await listarObras(); };
+  </script>
+</body>
+</html> 

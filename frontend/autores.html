@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Autores - Desafio Java JR</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+  <script src="js/api.js"></script>
+</head>
+<body>
+  <header>Autores</header>
+  <nav>
+    <a href="index.html">Início</a>
+    <a href="obras.html">Obras</a>
+  </nav>
+  <div class="container">
+    <h2>Cadastrar/Editar Autor</h2>
+    <form id="autor-form">
+      <input type="hidden" id="autor-id">
+      <label>Nome*
+        <input type="text" id="autor-nome" required>
+      </label>
+      <label>Sexo
+        <select id="autor-sexo">
+          <option value="">Selecione</option>
+          <option value="MASCULINO">Masculino</option>
+          <option value="FEMININO">Feminino</option>
+          <option value="OUTRO">Outro</option>
+        </select>
+      </label>
+      <label>Email
+        <input type="email" id="autor-email">
+      </label>
+      <label>Data de Nascimento*
+        <input type="date" id="autor-nascimento" required>
+      </label>
+      <label>País de Origem*
+        <input type="text" id="autor-pais" required>
+      </label>
+      <label>CPF (se Brasil)
+        <input type="text" id="autor-cpf">
+      </label>
+      <label>Obras
+        <select id="autor-obras" multiple style="height:80px;"></select>
+      </label>
+      <button type="submit">Salvar</button>
+      <button type="button" onclick="limparForm()">Limpar</button>
+    </form>
+    <div id="autor-alert"></div>
+    <h2>Autores Cadastrados</h2>
+    <table id="autores-tabela">
+      <thead>
+        <tr>
+          <th>Nome</th><th>Email</th><th>Sexo</th><th>País</th><th>Obras</th><th>Ações</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <script>
+    let obrasCache = [];
+    async function carregarObrasSelect(selectedIds=[]) {
+      const obras = await apiFetch(API_URL + '/obras');
+      obrasCache = obras.content || [];
+      const select = document.getElementById('autor-obras');
+      select.innerHTML = '';
+      obrasCache.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.id;
+        opt.textContent = o.nome;
+        if(selectedIds.includes(o.id)) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+    async function listarAutores() {
+      const autores = await apiFetch(API_URL + '/autores');
+      const tbody = document.querySelector('#autores-tabela tbody');
+      tbody.innerHTML = '';
+      (autores.content || []).forEach(autor => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${autor.nome}</td>
+          <td>${autor.email||''}</td>
+          <td>${autor.sexo||''}</td>
+          <td>${autor.paisOrigem||''}</td>
+          <td>${(autor.obrasIds||[]).map(id => obrasCache.find(o=>o.id===id)?.nome).filter(Boolean).join(', ')}</td>
+          <td>
+            <button class="btn" onclick="editarAutor(${autor.id})">Editar</button>
+            <button class="btn" onclick="excluirAutor(${autor.id})">Excluir</button>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+    }
+    async function salvarAutor(e) {
+      e.preventDefault();
+      const id = document.getElementById('autor-id').value;
+      const nome = document.getElementById('autor-nome').value;
+      const sexo = document.getElementById('autor-sexo').value;
+      const email = document.getElementById('autor-email').value;
+      const dataNascimento = document.getElementById('autor-nascimento').value;
+      const paisOrigem = document.getElementById('autor-pais').value;
+      const cpf = document.getElementById('autor-cpf').value;
+      const obrasIds = Array.from(document.getElementById('autor-obras').selectedOptions).map(o=>Number(o.value));
+      const dto = { nome, sexo, email, dataNascimento, paisOrigem, cpf, obrasIds };
+      try {
+        if(id) await apiFetch(API_URL + '/autores/' + id, {method:'PUT', body:JSON.stringify(dto)});
+        else await apiFetch(API_URL + '/autores', {method:'POST', body:JSON.stringify(dto)});
+        limparForm();
+        listarAutores();
+        showAlert('Autor salvo com sucesso!', true);
+      } catch(err) { showAlert(err.message, false); }
+    }
+    function limparForm() {
+      document.getElementById('autor-form').reset();
+      document.getElementById('autor-id').value = '';
+      carregarObrasSelect();
+    }
+    async function editarAutor(id) {
+      const autor = await apiFetch(API_URL + '/autores/' + id);
+      document.getElementById('autor-id').value = autor.id;
+      document.getElementById('autor-nome').value = autor.nome;
+      document.getElementById('autor-sexo').value = autor.sexo||'';
+      document.getElementById('autor-email').value = autor.email||'';
+      document.getElementById('autor-nascimento').value = autor.dataNascimento||'';
+      document.getElementById('autor-pais').value = autor.paisOrigem||'';
+      document.getElementById('autor-cpf').value = autor.cpf||'';
+      carregarObrasSelect(autor.obrasIds||[]);
+    }
+    async function excluirAutor(id) {
+      if(!confirm('Tem certeza que deseja excluir este autor?')) return;
+      try {
+        await apiFetch(API_URL + '/autores/' + id, {method:'DELETE'});
+        listarAutores();
+        showAlert('Autor excluído com sucesso!', true);
+      } catch(err) { showAlert(err.message, false); }
+    }
+    function showAlert(msg, success) {
+      const div = document.getElementById('autor-alert');
+      div.className = success ? 'alert success' : 'alert';
+      div.textContent = msg;
+      setTimeout(()=>{div.textContent='';div.className='';}, 4000);
+    }
+    document.getElementById('autor-form').onsubmit = salvarAutor;
+    window.onload = async () => { await carregarObrasSelect(); await listarAutores(); };
+  </script>
+</body>
+</html> 
