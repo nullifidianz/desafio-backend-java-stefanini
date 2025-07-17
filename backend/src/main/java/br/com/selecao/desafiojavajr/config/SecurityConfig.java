@@ -14,10 +14,10 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .csrf().disable()
+                .csrf(org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .anyRequest().authenticated())
-                .httpBasic();
+                .httpBasic(org.springframework.security.config.Customizer.withDefaults());
         return http.build();
     }
 
@@ -25,9 +25,8 @@ public class SecurityConfig {
     public UserDetailsService users() {
         UserDetails user = User.builder()
                 .username("admin")
-                .password("admin")
+                .password("{noop}admin") // {noop} indica senha sem codificação, apenas para testes
                 .roles("USER")
-                .passwordEncoder(org.springframework.security.crypto.password.NoOpPasswordEncoder.getInstance()::encode)
                 .build();
         return new InMemoryUserDetailsManager(user);
     }

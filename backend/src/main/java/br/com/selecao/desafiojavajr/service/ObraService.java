@@ -11,7 +11,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -69,7 +68,6 @@ public class ObraService {
 
     @Transactional
     public void excluir(Long id) {
-        Obra obra = obraRepository.findById(id).orElseThrow(() -> new RuntimeException("Obra não encontrada"));
         obraRepository.deleteById(id);
     }
 
